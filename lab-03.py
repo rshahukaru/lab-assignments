@@ -1,43 +1,36 @@
 import streamlit as st
 from openai import OpenAI
 
+# Initialize OpenAI client
 openai_api_key = st.secrets["openai_api_key"]
-
-# Create an OpenAI client.
 client = OpenAI(api_key=openai_api_key)
 
 # Title
-st.title("📄 LAB 03 - Building Chat Bot :blue[(SUID: 226494782)]")
+st.title("📄 LAB 03 - Building Chat Bot")
 
+# Select the model variant
+openAI_model = st.sidebar.selectbox("Which Model?", ("mini", "regular"))
+model_to_use = "gpt-4o-mini" if openAI_model == "mini" else "gpt-4o"
 
-# message = st.chat_message("assistant")
-# message.write("Hello Human")
+# Initialize session state for messages if it doesn't exist
+if 'messages' not in st.session_state:
+    st.session_state.messages = [{"role": "assistant", "content": "How can I help you?"}]
 
-# prompt = st.chat_input("Say something")
-# if prompt:
-#     st.write(f"User has sent the following part: {prompt}")
+# Function to handle chat input and responses
+def handle_chat():
+    user_input = st.text_input("Your question:", key="input")
+    if user_input:
+        # Simulating a response for demonstration
+        response = f"This is a response to: '{user_input}' using model {model_to_use}"
+        # Append user input and response to the chat history
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        st.session_state.messages.append({"role": "assistant", "content": response})
+        # Clear the input box after processing
+        st.session_state.input = ""
 
-# with st.chat_message("assistant"):
-#     response = st.stream(response_generator())
-# st.session_state.messages.append({"role": "assistant",
-#                                   "content": response})
+# Display chat messages
+for message in st.session_state.messages:
+    st.container().markdown(f"**{message['role'].title()}**: {message['content']}")
 
-
-openAI_model = st.sidebar.selectbox("Which Model?", 
-                                    ("mini", "regular"))
-
-if openAI_model == "mini":
-    model_to_use = "gpt-4o-mini"
-else:
-    model_to_use = "gpt-4o"
-
-# Create an OpenAI client 
-if 'client' not in st.session_state:
-    api_key = st.secrets["openai_api_key"]
-    st.session_chat["messages"] = \
-        [{"role": "assistant","content": "How can I help you?"}]
-    
-# History 
-for msg in st.session_state.messages:
-    chat_msg = st.chat_message(msg["role"])
-    chat_msg.write(msg["content"])
+# Input and button to handle chat
+handle_chat()
