@@ -33,7 +33,7 @@ else:
 
 # Create an OpenAI client 
 if 'client' not in st.session_state:
-    api_key = st.secrets["OPENAI_API_KEY"]
+    api_key = st.secrets["openai_api_key"]
     st.session_chat["messages"] = \
         [{"role": "assistant","content": "How can I help you?"}]
     
