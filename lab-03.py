@@ -18,17 +18,19 @@ if 'messages' not in st.session_state:
 
 # Function to handle chat input and responses
 def handle_chat():
-    # Use a form to capture input and submit action
-    with st.form(key='chat_form'):
-        user_input = st.text_input("Your question:", key="input")
-        submit_button = st.form_submit_button("Send")
-    
-    if submit_button and user_input:
-        # Simulating a response for demonstration
-        response = f"This is a response to: '{user_input}' using model {model_to_use}"
-        # Append user input and response to the chat history
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        st.session_state.messages.append({"role": "assistant", "content": response})
+    # Text input for user query
+    user_input = st.text_input("Your question:", key="input")
+
+    # Button to submit response
+    if st.button("Send"):
+        if user_input:
+            # Simulating a response for demonstration
+            response = f"This is a response to: '{user_input}' using model {model_to_use}"
+            # Append user input and response to the chat history
+            st.session_state.messages.append({"role": "user", "content": user_input})
+            st.session_state.messages.append({"role": "assistant", "content": response})
+            # Clear the text input (This line should be adjusted if causing issues)
+            st.session_state['input'] = ''
 
 # Display chat messages
 for message in st.session_state.messages:
