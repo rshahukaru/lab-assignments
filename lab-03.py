@@ -83,7 +83,7 @@ else:
             st.markdown(prompt)
 
         # Generate a response from OpenAI using the same model
-        stream = client.chat_completions.create(
+        stream = client.chat.completions.create(
             model=model_to_use,
             messages=st.session_state.messages,
             stream=True,
