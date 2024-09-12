@@ -54,7 +54,7 @@ else:
         ]
 
         # Generate the summary using the OpenAI API
-        stream = client.chat_completions.create(
+        stream = client.chat.completions.create(
             model=model_to_use,
             messages=messages,
             stream=True,
