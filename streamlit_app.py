@@ -15,7 +15,7 @@ lab_11_page = st.Page("lab-11.py", title="Lab-11")
 lab_12_page = st.Page("lab-12.py", title="Lab-12")
 
 # Title
-st.navigation.title("Lab Navigator")
+st.sidebar.title("Lab Assignments")
 
 # Navigation setup with all homework pages
 pg = st.navigation([
