@@ -25,6 +25,6 @@ else:
 
     # 2.2. Creating a Sidebar
     st.sidebar.title("Options")
-    st.echo("Just testing the echo method")
+    st.write("Just testing the echo method")
 
     
