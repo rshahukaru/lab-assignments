@@ -7,7 +7,7 @@ st.write("This line is added to :blue[check] whether the changes are being saved
 st.title("📄 LAB 01 - Revanth Shahukaru :blue[(SUID: 226494782)]")
 
 # Retrieve the OpenAI API key from the secrets file
-openai_api_key = st.secrets["OPENAI_API_KEY"]
+openai_api_key = st.secrets["openai_api_key"]
 
 # Create an OpenAI client.
 client = OpenAI(api_key=openai_api_key)
