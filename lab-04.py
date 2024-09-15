@@ -23,8 +23,9 @@ else:
     # # Let the user upload a file via ⁠ st.file_uploader ⁠.
     # uploaded_file = st.file_uploader("Upload a document (.txt or .md)", type=("txt", "md"))
 
-    # 2.2. Creating a Sidebar
-    st.sidebar.title("Options")
-    st.write("Just testing the echo method")
+    # 2.2. Building a Sidebar and its elements
 
+    # Sidebar Title
+    st.sidebar.title("Options")
     
+    # 
