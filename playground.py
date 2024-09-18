@@ -260,22 +260,23 @@
 
 
 # Importing necessary libraries
-import streamlit as st  # Importing Streamlit for building the web app
-from openai import OpenAI  # Importing OpenAI client for OpenAI API interaction
-
-# Importing placeholder clients for Llama and Claude APIs
-# In actual implementation, replace these with the real API clients and their respective import statements
-import llama_api  # Placeholder for Llama API client
-import claude_api  # Placeholder for Claude API client
+import streamlit as st  # For building the web application
+import openai  # For interacting with OpenAI's API
+from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT  # For interacting with Claude
+from llama_cpp import Llama  # For interacting with Llama models
+import os  # For setting environment variables
 
 # Setting the title of the Streamlit app
 st.title("Chatbot with Multiple LLMs")
 
-# Fetching API keys from Streamlit secrets or environment variables
-# Using .get() to safely retrieve the keys, defaulting to an empty string if not found
+# Fetching API keys from Streamlit secrets
 openai_api_key = st.secrets.get("openai_api_key", "")
-llama_api_key = st.secrets.get("llama_api_key", "")
 claude_api_key = st.secrets.get("claude_api_key", "")
+llama_api_key = st.secrets.get("llama_api_key", "")
+
+# Setting environment variables for the API keys
+os.environ["OPENAI_API_KEY"] = openai_api_key
+os.environ["ANTHROPIC_API_KEY"] = claude_api_key
 
 # Displaying the sidebar for user options
 st.sidebar.title("Options")
@@ -283,7 +284,7 @@ st.sidebar.title("Options")
 # Providing a selectbox in the sidebar for the user to choose the model
 llm_model = st.sidebar.selectbox(
     "Choose the model",
-    ("OpenAI - GPT-3.5", "OpenAI - GPT-4o", "Llama - llama3.1-405b", "Claude - Claude 2")
+    ("OpenAI - GPT-3.5", "OpenAI - GPT-4", "Llama", "Claude - Claude 2")
 )
 
 # Adding a button to confirm the model change
@@ -321,45 +322,62 @@ def get_model_response(prompt, messages):
     # Handling OpenAI models
     if "OpenAI" in selected_model:
         # Determining which OpenAI model to use based on the selection
-        openai_model = "gpt-3.5-turbo" if "3.5" in selected_model else "gpt-4o"
-        # Creating an OpenAI client with the API key
-        client = OpenAI(api_key=openai_api_key)
+        openai_model = "gpt-3.5-turbo" if "3.5" in selected_model else "gpt-4"
+        # Setting the OpenAI API key
+        openai.api_key = openai_api_key
         # Generating the response from the OpenAI model
-        stream = client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model=openai_model,
             messages=messages,
             stream=True
         )
         # Returning the response stream
-        return stream
+        return response
 
     # Handling Llama model
     elif "Llama" in selected_model:
-        # Creating a Llama API client with the API key
-        client = llama_api.Llama(api_key=llama_api_key)
+        # Loading the Llama model; assuming model weights are available locally
+        # Replace 'path_to_llama_model' with the actual path to your Llama model
+        llm = Llama(model_path="path_to_llama_model")
+        # Preparing the conversation history as a single prompt
+        conversation = ""
+        for msg in messages:
+            if msg["role"] == "user":
+                conversation += f"User: {msg['content']}\n"
+            elif msg["role"] == "assistant":
+                conversation += f"Assistant: {msg['content']}\n"
         # Generating the response from the Llama model
-        stream = client.chat.completions.create(
-            model="llama3.1-405b",
-            messages=messages,
-            stream=True
-        )
-        # Returning the response stream
-        return stream
+        output = llm(conversation + f"User: {prompt}\nAssistant:", max_tokens=256, stop=["\nUser:"])
+        # Extracting the assistant's reply
+        assistant_reply = output['choices'][0]['text'].strip()
+        # Returning the assistant's reply
+        return assistant_reply
 
     # Handling Claude model
     elif "Claude" in selected_model:
-        # Creating a Claude API client with the API key
-        client = claude_api.Claude(api_key=claude_api_key)
-        # Generating the response from the Claude model
-        stream = client.chat.completions.create(
+        # Creating an Anthropic client with the API key
+        client = Anthropic(api_key=claude_api_key)
+        # Preparing the conversation history for Claude
+        conversation = ""
+        for msg in messages:
+            if msg["role"] == "user":
+                conversation += f"{HUMAN_PROMPT} {msg['content']}\n"
+            elif msg["role"] == "assistant":
+                conversation += f"{AI_PROMPT} {msg['content']}\n"
+
+        # Adding the latest user prompt
+        conversation += f"{HUMAN_PROMPT} {prompt}\n{AI_PROMPT}"
+        # Generating the response from Claude
+        response = client.completions.create(
             model="claude-2",
-            messages=messages,
+            prompt=conversation,
+            max_tokens_to_sample=1000,
             stream=True
         )
         # Returning the response stream
-        return stream
+        return response
 
-# Displaying the chat history
+# Displaying chat history
 for msg in st.session_state["messages"]:
     # Creating a chat message with the appropriate role (user or assistant)
     chat_msg = st.chat_message(msg["role"])
@@ -376,12 +394,25 @@ if prompt := st.chat_input("Ask the chatbot a question or interact:"):
         st.markdown(prompt)
 
     # Getting the assistant's response from the selected model
-    response_stream = get_model_response(prompt, st.session_state["messages"])
+    response = get_model_response(prompt, st.session_state["messages"])
     
     # Displaying the assistant's response in the chat
     with st.chat_message("assistant"):
-        # Streaming the response and capturing it
-        assistant_response = st.write_stream(response_stream)
-    
+        # For OpenAI and Claude (streaming responses)
+        if hasattr(response, '__iter__') and not isinstance(response, str):
+            assistant_response = ""
+            for chunk in response:
+                if 'choices' in chunk:
+                    delta = chunk['choices'][0]['delta']
+                    if 'content' in delta:
+                        content = delta['content']
+                        assistant_response += content
+                        st.write(content, end='')
+            st.write()
+        else:
+            # For Llama and non-streaming responses
+            st.markdown(response)
+            assistant_response = response
+        
     # Adding the assistant's response to the conversation history
     st.session_state["messages"].append({"role": "assistant", "content": assistant_response})
