@@ -20,7 +20,7 @@ playground_page = st.Page("playground.py", title="Playground", default=True)
 pg = st.navigation([
     lab_01_page, lab_02_page, lab_03_page, lab_04_page, lab_05_page,
     lab_06_page, lab_07_page, lab_08_page, lab_09_page, lab_10_page,
-    lab_11_page, lab_12_page
+    lab_11_page, lab_12_page, playground_page
 ])
 
 # Configuration of the main app
