@@ -6,4 +6,5 @@ google-generativeai
 anthropic
 mistralai
 PyMuPDF
+langchain
 langchain_ollama
