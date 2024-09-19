@@ -104,7 +104,7 @@ def summarize_with_openai(text, instruction, model):
 
 
 def summarize_with_llama(text, instruction, model):
-    llm = Ollama(model=model)
+    llm = OllamaLLM(model=model)
     prompt = f"{instruction}\n\n{text}"
     response = llm(prompt)
     return response
@@ -269,7 +269,7 @@ if prompt := st.chat_input("Ask the chatbot a question or interact:"):
         return assistant_message
 
     def chatbot_response_llama(messages, model):
-        llm = Ollama(model=model)
+        llm = OllamaLLM(model=model)
         # Convert messages into a single prompt
         prompt = ""
         for message in messages:
