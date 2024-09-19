@@ -8,7 +8,3 @@ PyPDF2
 langchain
 langchain_ollama
 tiktoken
-# lab-04
-chromadb
-pysqlite3-binary
-protobuf==3.20
