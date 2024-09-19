@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 import openai
-from langchain.llms import Ollama
+from langchain_ollama import Ollama
 import anthropic
 
 # Title of the Streamlit app
