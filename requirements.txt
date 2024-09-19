@@ -8,7 +8,6 @@ PyPDF2
 langchain
 langchain_ollama
 tiktoken
-# Following libraries are for lab 4
 chromadb
 pysqlite3-binary
 protobuf==3.20
