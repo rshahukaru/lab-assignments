@@ -4,7 +4,7 @@ openai==0.28
 bs4
 google-generativeai
 anthropic
-PyMuPDF
+PyPDF2
 langchain
 langchain_ollama
 tiktoken

@@ -1,13 +1,12 @@
 import streamlit as st
 from openai import OpenAI
+from PyPDF2 import PdfReader
 
 # Show title and description.
-st.title("LAB-04- :blue[Revanth Shahukaru]📄 Document question answering and Chatbot")
+st.title("LAB-04- :blue[Revanth Shahukaru]📄 ChromaDB")
 st.write(
     "Upload a document below and ask a question about it – GPT will answer! "
-    "You can also interact with the chatbot. "
-    "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys). "
-)
+    "You can also interact with the chatbot. ")
 
 # Fetch the OpenAI API key from Streamlit secrets
 openai_api_key = st.secrets["openai_api_key"]
@@ -19,8 +18,12 @@ else:
     # Create an OpenAI client
     client = OpenAI(api_key=openai_api_key)
 
+    # PDF UPLOAD
     # Let the user upload a file via ⁠ st.file_uploader ⁠.
-    uploaded_file = st.file_uploader("Upload a document (.txt or .md)", type=("txt", "md"))
+    uploaded_file = st.file_uploader("Upload a PDF", type="pdf")
+    if uploaded_file:
+        reader = PdfReader(uploaded_file)
+        text = "\n".join(page.extract_text() for page in reader.pages if page.extract_text())
 
     # Sidebar options for summarizing 
     st.sidebar.title("Options")
@@ -41,7 +44,7 @@ else:
 
     if uploaded_file:
         # Process the uploaded file
-        document = uploaded_file.read().decode()
+        document_text = text
 
         # Instruction based on user selection on the sidebar menu
         instruction = f"Summarize the document in {summary_options.lower()}."
@@ -50,7 +53,7 @@ else:
         messages = [
             {
                 "role": "user",
-                "content": f"Here's a document: {document} \n\n---\n\n {instruction}",
+                "content": f"Here's a document: {document_text} \n\n---\n\n {instruction}",
             }
         ]
 
