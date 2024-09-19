@@ -187,7 +187,7 @@ def summarize_with_openai(text, instruction, model):
         model=model, messages=messages, max_tokens=500
     )
     summary = response["choices"][0]["message"]["content"]
-    # return summary # commenting this because I am getting the summary twice
+    return summary # commenting this because I am getting the summary twice
 
 def summarize_with_llama(text, instruction, model):
     llm = OllamaLLM(model=model)
