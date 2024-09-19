@@ -201,7 +201,7 @@ def summarize_with_openai(text, instruction, model):
 def summarize_with_llama(text, instruction, model):
     llm = OllamaLLM(model=model)
     prompt = f"{instruction}\n\n{text}"
-    response = llm(prompt)
+    response = llm.invoke(input=prompt)
     return response
 
 def summarize_with_claude(text, instruction, model):
@@ -264,7 +264,7 @@ if prompt := st.chat_input("Ask the chatbot a question or interact:"):
             elif message["role"] == "assistant":
                 prompt += f"Assistant: {message['content']}\n"
         prompt += "Assistant:"
-        response = llm(prompt)
+        response = llm.invoke(input=prompt)
         return response
 
     def chatbot_response_claude(messages, model):
