@@ -1,5 +1,6 @@
 import streamlit as st
 from PyPDF2 import PdfReader
+from openai import OpenAI
 
 # Show title and description.
 st.title("LAB-04- :blue[Revanth Shahukaru]📄 ChromaDB")
