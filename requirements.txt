@@ -1,8 +1,9 @@
 streamlit
+requests
 openai
 bs4
 google-generativeai
 anthropic
 mistralai
 PyMuPDF
-llama-cpp
+langchain_ollama

@@ -146,273 +146,220 @@
 ########################################################################################################
 ############################################### NEW CODE ###############################################
 
-# import streamlit as st
-# from openai import OpenAI
-
-# # Title of the Streamlit app
-# st.title("Just practicing Streamlit Code")
-
-# # Fetch the OpenAI API key from streamlit secrets
-# openai_api_key = st.secrets["openai_api_key"]
-
-# # If no API key is available, ask for it
-# if not openai_api_key:
-#     st.info("Please add your OpenAI API key to continue.", icon="🗝️")
-#     openai_api_key = st.text_input("Enter your OpenAI API key")
-# else:
-#     # Create an OpenAI client
-#     client = OpenAI(api_key=openai_api_key)
-
-#     # Sidebar for user to upload document
-#     uploaded_file = st.file_uploader("Upload a document (.txt or .md)", type=("txt", "md"))
-
-#     # Sidebar elements
-#     st.sidebar.title("Options")
-#     # Model options
-#     openAI_model = st.sidebar.selectbox("Choose the model", ("mini", "regular"))
-#     model_to_use = "gpt-4o-mini" if openAI_model == "mini" else "gpt-4o"
-
-#     # Summary format options
-#     option_1 = "Summarize the document in 100 words"
-#     option_2 = "Summarize the document in 2 connecting paragraphs"
-#     option_3 = "Summarize the document in 5 bullet points"
-#     summary_options = st.sidebar.radio("Select a format for summarizing the document:", (option_1, option_2, option_3))
-
-#     # Conversation behavior options
-#     behavior = st.sidebar.radio("Conversation behavior:", ("Keep last 5 questions", "Summarize after 5 interactions", "Limit by token size (5000 tokens)"))
-
-#     # Session state for chatbot memory
-#     if "messages" not in st.session_state:
-#         st.session_state["messages"] = [
-#             {"role": "assistant", "content": "How can I help you?"},
-#             {"role": "system", "content": "Your output should end with 'DO YOU WANT MORE INFO?' unless you get a 'no' as an input. In which case, you should go back to asking 'How can I help you?' Make sure your answers are simple enough for a 10-year-old to understand."}
-#         ]
-    
-#     # Display the chatbot interface
-#     st.write("### Chatbot")
-
-#     # Implementing conversation buffer, summary, and token size limit
-#     def manage_memory(messages, behavior):
-
-#         if behavior == "Keep last 5 questions":
-#             return messages[-10:]  # Keeping the last 5 user-assistant pairs
-        
-#         elif behavior == "Summarize after 5 interactions":
-#             if len(messages) > 10:  # If more than 5 pairs (10 messages), summarize
-#                 document = "\n".join([msg["content"] for msg in messages if msg["role"] == "user"])
-#                 summary_instruction = "Summarize this conversation."
-#                 summary_messages = [
-#                     {"role": "user", "content": f"Here's a conversation: \n{document} \n\nSummarize it: {summary_instruction}"}
-#                 ]
-#                 summary = client.chat.completions.create(model=model_to_use, messages=summary_messages)
-#                 st.write("### Conversation Summary")
-#                 st.write(summary)
-#                 return [{"role": "assistant", "content": summary}]  # Store only the summary
-#             else:
-#                 return messages
-        
-#         elif behavior == "Limit by token size (5000 tokens)":
-#             token_count = sum([len(msg["content"]) for msg in messages])  # Rough estimation by character count
-            
-#             while token_count > 5000:
-#                 messages.pop(0)  # Remove oldest messages until under the token limit
-#                 token_count = sum([len(msg["content"]) for msg in messages])
-#             return messages
-
-#     # Manage conversation memory
-#     st.session_state.messages = manage_memory(st.session_state.messages, behavior)
-
-#     # Display chat history
-#     for msg in st.session_state.messages:
-#         if msg["role"] != "system":  # Skip the system messages
-#             chat_msg = st.chat_message(msg["role"])
-#             chat_msg.write(msg["content"])
-
-#     # Capturing the user input for the chatbot
-#     if prompt := st.chat_input("Ask the chatbot a question or interact:"):
-
-#         # Append the user's message to session state
-#         st.session_state.messages.append({"role": "user", "content": prompt})
-
-#         # Display user's input in the chat
-#         with st.chat_message("user"):
-#             st.markdown(prompt)
-
-#         # Pass the prompt to the OpenAI API along with session messages
-#         stream = client.chat.completions.create(
-#             model=model_to_use,
-#             messages=st.session_state["messages"],
-#             stream=True  # Streaming the response from the model
-#         )
-
-#         # Stream the assistant's response
-#         with st.chat_message("assistant"):
-#             response = st.write_stream(stream)
-
-#         # Append the assistant's response to session state
-#         st.session_state.messages.append({"role": "assistant", "content": response})
 
 
 
 
-########################################################################################################
-############################################### NEW CODE ###############################################
+import streamlit as st
+import requests
+from bs4 import BeautifulSoup
+from openai import OpenAI
+from langchain_ollama import OllamaLLM
 
+# Title of the Streamlit app
+st.title("Just practicing Streamlit Code")
 
-# Importing necessary libraries
-import streamlit as st  # For building the web application
-import openai  # For interacting with OpenAI's API
-from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT  # For interacting with Claude
-from llama_cpp import Llama  # For interacting with Llama models
-import os  # For setting environment variables
+# Fetch the API keys from streamlit secrets
+openai_api_key = st.secrets["openai_api_key"]
+llama_api_key  = st.secrets["llama_api_key"]
+claude_api_key = st.secrets["claude_api_key"]
 
-# Setting the title of the Streamlit app
-st.title("Chatbot with Multiple LLMs")
+# SIDEBAR ELEMENTS
 
-# Fetching API keys from Streamlit secrets
-openai_api_key = st.secrets.get("openai_api_key", "")
-claude_api_key = st.secrets.get("claude_api_key", "")
-llama_api_key = st.secrets.get("llama_api_key", "")
+st.sidebar.title("Summarization Options")
 
-# Setting environment variables for the API keys
-os.environ["OPENAI_API_KEY"] = openai_api_key
-os.environ["ANTHROPIC_API_KEY"] = claude_api_key
+# SUMMARIZATION
+# Model options for summarization
+selected_llm_for_summarization = st.sidebar.selectbox("Choose the model", ("OpenAI: gpt-4o-mini", "OpenAI: gpt-4o (Advanced)",
+                                                                            "LLaMa: llama3.1-8b", "LLaMa: llama3.1-405b (Advanced)",
+                                                                            "Claude: claude-3-haiku-20240307", "Claude: claude-3-5-sonnet-20240620 (Advanced)"))
 
-# Displaying the sidebar for user options
-st.sidebar.title("Options")
+if selected_llm_for_summarization == "OpenAI: gpt-4o-mini":
+    model_to_use_for_summarization = "gpt-4o-mini"
 
-# Providing a selectbox in the sidebar for the user to choose the model
-llm_model = st.sidebar.selectbox(
-    "Choose the model",
-    ("OpenAI - GPT-3.5", "OpenAI - GPT-4", "Llama", "Claude - Claude 2")
-)
+elif selected_llm_for_summarization == "OpenAI: gpt-4o (Advanced)":
+    model_to_use_for_summarization = "gpt-4o"
 
-# Adding a button to confirm the model change
-if st.sidebar.button("Change the chatbot model"):
-    # Storing the selected model in the session state when the button is clicked
-    st.session_state["selected_model"] = llm_model
-    # Resetting the conversation history when the model changes
-    st.session_state["messages"] = [
-        {"role": "assistant", "content": "How can I help you today?"}
-    ]
+elif selected_llm_for_summarization == "LLaMa: llama3.1-8b":
+    model_to_use_for_summarization = "llama3.1-8b"
 
-# Displaying the currently selected model
-if "selected_model" in st.session_state:
-    # Showing the user which model is currently being used
-    st.write(f"**Using model:** {st.session_state['selected_model']}")
+elif selected_llm_for_summarization == "LLaMa: llama3.1-405b (Advanced)":
+    model_to_use_for_summarization = "llama3.1-405b"
+
+elif selected_llm_for_summarization == "Claude: claude-3-haiku-20240307)":
+    model_to_use_for_summarization = "claude-3-haiku-20240307"
+
+elif selected_llm_for_summarization == "Claude: claude-3-5-sonnet-20240620 (Advanced)":
+    model_to_use_for_summarization = "claude-3-5-sonnet-20240620"
+
 else:
-    # Informing the user that no model has been selected yet
-    st.write("No model selected yet")
+    pass
 
-# Initializing the conversation messages in session state
+# SUMMARIZATION
+# Summary format options
+option_1 = "Summarize the document in 100 words"
+option_2 = "Summarize the document in 2 connecting paragraphs"
+option_3 = "Summarize the document in 5 bullet points"
+summary_options = st.sidebar.radio("Select a format for summarizing the document:",
+                                    (option_1, option_2, option_3))
+
+
+
+# Function to extract text content from a URL
+def extract_text_from_url(url):
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Handle HTTP errors
+        soup = BeautifulSoup(response.content, 'html.parser')
+        return soup.get_text()
+    except requests.RequestException as e:
+        st.error(f"Failed to retrieve URL: {url}. Error: {e}")
+        return None
+    
+# Input for URL
+input_url = st.text_input("URL Input:")
+
+
+
+# CHAT BOT
+st.sidebar.title("Chat Bot Options")
+
+# Conversation behavior options
+behavior = st.sidebar.radio("Conversation behavior:", ("Keep last 5 questions", "Summarize after 5 interactions", "Limit by token size (5000 tokens)"))
+
+# Session state for chatbot memory
 if "messages" not in st.session_state:
-    # Setting up default messages with an assistant greeting
     st.session_state["messages"] = [
-        {"role": "assistant", "content": "How can I help you today?"}
+        {"role": "assistant", "content": "How can I help you?"},
+        {"role": "system", "content": "Your output should end with 'DO YOU WANT MORE INFO?' case sensitive unless you get a 'no' as an input. In which case, you should go back to asking 'How can I help you?' Make sure your answers are simple enough for a 10-year-old to understand."}
     ]
 
-# Defining a function to get the model response based on the selected LLM
-def get_model_response(prompt, messages):
-    """
-    Selecting the appropriate API client based on the selected model,
-    and generating a response from the model.
-    """
-    selected_model = st.session_state["selected_model"]
+
+
+
+################################### CHATBOT ###################################
+
+# Model options for CHATBOT
+selected_llm_for_chatbot = st.sidebar.selectbox("Choose the model for Chatbot", ("OpenAI: gpt-4o-mini", "OpenAI: gpt-4o (Advanced)",
+                                                                            "LLaMa: llama3.1-8b", "LLaMa: llama3.1-405b (Advanced)",
+                                                                            "Claude: claude-3-haiku-20240307", "Claude: claude-3-5-sonnet-20240620 (Advanced)"))
+
+if selected_llm_for_chatbot == "OpenAI: gpt-4o-mini":
+    model_to_use_for_chatbot = "gpt-4o-mini"
+
+elif selected_llm_for_chatbot == "OpenAI: gpt-4o (Advanced)":
+    model_to_use_for_chatbot = "gpt-4o"
+
+elif selected_llm_for_chatbot == "LLaMa: llama3.1-8b":
+    model_to_use_for_chatbot = "llama3.1-8b"
+
+elif selected_llm_for_chatbot == "LLaMa: llama3.1-405b (Advanced)":
+    model_to_use_for_chatbot = "llama3.1-405b"
+
+elif selected_llm_for_chatbot == "Claude: claude-3-haiku-20240307)":
+    model_to_use_for_chatbot = "claude-3-haiku-20240307"
+
+elif selected_llm_for_chatbot == "Claude: claude-3-5-sonnet-20240620 (Advanced)":
+    model_to_use_for_chatbot = "claude-3-5-sonnet-20240620"
+
+else:
+    pass
+
+
+########################## OpenAI CHATBOT ##########################
+
+client = OpenAI(api_key=openai_api_key)
+
+# Display the chatbot interface
+st.write("### Chatbot")
+
+# Implementing conversation buffer, summary, and token size limit
+def manage_memory(messages, behavior):
+
+    if behavior == "Keep last 5 questions":
+        return messages[-10:]  # Keeping the last 5 user-assistant pairs
     
-    # Handling OpenAI models
-    if "OpenAI" in selected_model:
-        # Determining which OpenAI model to use based on the selection
-        openai_model = "gpt-3.5-turbo" if "3.5" in selected_model else "gpt-4"
-        # Setting the OpenAI API key
-        openai.api_key = openai_api_key
-        # Generating the response from the OpenAI model
-        response = openai.ChatCompletion.create(
-            model=openai_model,
-            messages=messages,
-            stream=True
-        )
-        # Returning the response stream
-        return response
+    elif behavior == "Summarize after 5 interactions":
+        if len(messages) > 11:  # If more than 5 pairs (10 messages), summarize
+            document = "\n".join([msg["content"] for msg in messages if msg["role"] == "user"])
+            summary_instruction = "Summarize this conversation."
+            summary_messages = [
+                {"role": "user", "content": f"Here's a conversation: \n{document} \n\nSummarize it: {summary_instruction}"}
+            ]
+            summary = client.chat.completions.create(model=model_to_use_for_chatbot, messages=summary_messages)
+            st.write("### Conversation Summary")
+            st.write(summary)
+            return [{"role": "assistant", "content": summary}]  # Store only the summary
+        else:
+            return messages
+    
+    elif behavior == "Limit by token size (5000 tokens)":
+        token_count = sum([len(msg["content"]) for msg in messages])  # Rough estimation by character count
+        
+        while token_count > 5000:
+            messages.pop(0)  # Remove oldest messages until under the token limit
+            token_count = sum([len(msg["content"]) for msg in messages])
+        return messages
 
-    # Handling Llama model
-    elif "Llama" in selected_model:
-        # Loading the Llama model; assuming model weights are available locally
-        # Replace 'path_to_llama_model' with the actual path to your Llama model
-        llm = Llama(model_path="path_to_llama_model")
-        # Preparing the conversation history as a single prompt
-        conversation = ""
-        for msg in messages:
-            if msg["role"] == "user":
-                conversation += f"User: {msg['content']}\n"
-            elif msg["role"] == "assistant":
-                conversation += f"Assistant: {msg['content']}\n"
-        # Generating the response from the Llama model
-        output = llm(conversation + f"User: {prompt}\nAssistant:", max_tokens=256, stop=["\nUser:"])
-        # Extracting the assistant's reply
-        assistant_reply = output['choices'][0]['text'].strip()
-        # Returning the assistant's reply
-        return assistant_reply
+# Manage conversation memory
+st.session_state.messages = manage_memory(st.session_state.messages, behavior)
 
-    # Handling Claude model
-    elif "Claude" in selected_model:
-        # Creating an Anthropic client with the API key
-        client = Anthropic(api_key=claude_api_key)
-        # Preparing the conversation history for Claude
-        conversation = ""
-        for msg in messages:
-            if msg["role"] == "user":
-                conversation += f"{HUMAN_PROMPT} {msg['content']}\n"
-            elif msg["role"] == "assistant":
-                conversation += f"{AI_PROMPT} {msg['content']}\n"
+# Display chat history
+for msg in st.session_state.messages:
+    if msg["role"] != "system":  # Skip the system messages
+        chat_msg = st.chat_message(msg["role"])
+        chat_msg.write(msg["content"])
 
-        # Adding the latest user prompt
-        conversation += f"{HUMAN_PROMPT} {prompt}\n{AI_PROMPT}"
-        # Generating the response from Claude
-        response = client.completions.create(
-            model="claude-2",
-            prompt=conversation,
-            max_tokens_to_sample=1000,
-            stream=True
-        )
-        # Returning the response stream
-        return response
-
-# Displaying chat history
-for msg in st.session_state["messages"]:
-    # Creating a chat message with the appropriate role (user or assistant)
-    chat_msg = st.chat_message(msg["role"])
-    # Writing the content of the message in the chat
-    chat_msg.write(msg["content"])
-
-# Capturing user input from the chat input box
+# Capturing the user input for the chatbot
 if prompt := st.chat_input("Ask the chatbot a question or interact:"):
-    # Adding the user's message to the conversation history
-    st.session_state["messages"].append({"role": "user", "content": prompt})
-    
-    # Displaying the user's message in the chat
+
+    # Append the user's message to session state
+    st.session_state.messages.append({"role": "user", "content": prompt})
+
+    # Display user's input in the chat
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Getting the assistant's response from the selected model
-    response = get_model_response(prompt, st.session_state["messages"])
-    
-    # Displaying the assistant's response in the chat
+    # Pass the prompt to the OpenAI API along with session messages
+    stream = client.chat.completions.create(
+        model=model_to_use_for_chatbot,
+        messages=st.session_state["messages"],
+        stream=True  # Streaming the response from the model
+    )
+
+    # Stream the assistant's response
     with st.chat_message("assistant"):
-        # For OpenAI and Claude (streaming responses)
-        if hasattr(response, '__iter__') and not isinstance(response, str):
-            assistant_response = ""
-            for chunk in response:
-                if 'choices' in chunk:
-                    delta = chunk['choices'][0]['delta']
-                    if 'content' in delta:
-                        content = delta['content']
-                        assistant_response += content
-                        st.write(content, end='')
-            st.write()
-        else:
-            # For Llama and non-streaming responses
-            st.markdown(response)
-            assistant_response = response
-        
-    # Adding the assistant's response to the conversation history
-    st.session_state["messages"].append({"role": "assistant", "content": assistant_response})
+        response = st.write_stream(stream)
+
+    # Append the assistant's response to session state
+    st.session_state.messages.append({"role": "assistant", "content": response})
+
+
+################################################################################################################
+
+
+
+
+########################## LLaMa - langchain_ollama CHATBOT ##########################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+########################## Claude CHATBOT ##########################
+
+
+
+
