@@ -33,8 +33,8 @@ behavior = st.sidebar.radio(
 selected_llm_for_chatbot = st.sidebar.selectbox(
     "Choose the model for Chatbot",
     (
-        "OpenAI: gpt-4o-mini",
-        "OpenAI: gpt-4o (Advanced)",
+        "OpenAI: gpt-3.5-turbo",
+        "OpenAI: gpt-4 (Advanced)",
         "LLaMa: llama3.1-8b",
         "LLaMa: llama3.1-405b (Advanced)",
         "Claude: claude-3-haiku-20240307",
@@ -42,16 +42,21 @@ selected_llm_for_chatbot = st.sidebar.selectbox(
     ),
 )
 
-if selected_llm_for_chatbot == "OpenAI: gpt-4o-mini":
+if selected_llm_for_chatbot == "OpenAI: gpt-3.5-turbo":
     model_to_use_for_chatbot = "gpt-3.5-turbo"
-elif selected_llm_for_chatbot == "OpenAI: gpt-4o (Advanced)":
+
+elif selected_llm_for_chatbot == "OpenAI: gpt-4 (Advanced)":
     model_to_use_for_chatbot = "gpt-4"
+
 elif selected_llm_for_chatbot == "LLaMa: llama3.1-8b":
     model_to_use_for_chatbot = "llama2-7b"
+
 elif selected_llm_for_chatbot == "LLaMa: llama3.1-405b (Advanced)":
     model_to_use_for_chatbot = "llama2-70b"
+
 elif selected_llm_for_chatbot == "Claude: claude-3-haiku-20240307":
     model_to_use_for_chatbot = "claude-instant"
+
 elif (
     selected_llm_for_chatbot == "Claude: claude-3-5-sonnet-20240620 (Advanced)"
 ):
@@ -118,14 +123,17 @@ if not st.session_state["messages"]:
 
 # Function to manage conversation memory
 def manage_memory(messages, behavior):
+
     if behavior == "Keep last 5 questions":
         # Keep system messages and last 5 pairs
         system_messages = [msg for msg in messages if msg["role"] == "system"]
         conversation = [msg for msg in messages if msg["role"] != "system"]
         return system_messages + conversation[-10:]  # Last 5 pairs (user and assistant)
+
     elif behavior == "Summarize after 5 interactions":
         system_messages = [msg for msg in messages if msg["role"] == "system"]
         conversation = [msg for msg in messages if msg["role"] != "system"]
+
         if len(conversation) > 10:  # More than 5 pairs
             # Summarize the conversation
             document = "\n".join(
@@ -139,8 +147,10 @@ def manage_memory(messages, behavior):
             st.write(summary)
             # Reset conversation keeping the system messages and summary
             return system_messages + [{"role": "assistant", "content": summary}]
+        
         else:
             return messages
+        
     elif behavior == "Limit by token size (5000 tokens)":
         system_messages = [msg for msg in messages if msg["role"] == "system"]
         conversation = [msg for msg in messages if msg["role"] != "system"]
@@ -149,6 +159,7 @@ def manage_memory(messages, behavior):
             conversation.pop(0)  # Remove oldest messages until under the token limit
             token_count = sum([len(msg["content"]) for msg in conversation])
         return system_messages + conversation
+    
     else:
         return messages
 
@@ -156,10 +167,13 @@ def manage_memory(messages, behavior):
 def generate_summary(text, instruction, model_to_use):
     if model_to_use in ["gpt-3.5-turbo", "gpt-4"]:
         return summarize_with_openai(text, instruction, model_to_use)
+
     elif model_to_use.startswith("llama"):
         return summarize_with_llama(text, instruction, model_to_use)
+
     elif model_to_use.startswith("claude"):
         return summarize_with_claude(text, instruction, model_to_use)
+
     else:
         st.error("Model not supported.")
         return None
@@ -173,7 +187,7 @@ def summarize_with_openai(text, instruction, model):
         model=model, messages=messages, max_tokens=500
     )
     summary = response["choices"][0]["message"]["content"]
-    return summary
+    # return summary # commenting this because I am getting the summary twice
 
 def summarize_with_llama(text, instruction, model):
     llm = OllamaLLM(model=model)
