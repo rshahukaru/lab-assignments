@@ -4,13 +4,13 @@ from bs4 import BeautifulSoup
 import openai
 from langchain_ollama import OllamaLLM
 import anthropic
+import tiktoken  # For accurate token counting
 
 # Title of the Streamlit app
 st.title("Just practicing Streamlit Code")
 
 # Fetch the API keys from streamlit secrets
 openai_api_key = st.secrets["openai_api_key"]
-llama_api_key = st.secrets["llama_api_key"]
 claude_api_key = st.secrets["claude_api_key"]
 
 # Set API keys for OpenAI and Anthropic
@@ -35,10 +35,10 @@ selected_llm_for_chatbot = st.sidebar.selectbox(
     (
         "OpenAI: gpt-3.5-turbo",
         "OpenAI: gpt-4 (Advanced)",
-        "LLaMa: llama3.1-8b",
-        "LLaMa: llama3.1-405b (Advanced)",
-        "Claude: claude-3-haiku-20240307",
-        "Claude: claude-3-5-sonnet-20240620 (Advanced)",
+        "LLaMa: llama-2-7b",
+        "LLaMa: llama-2-70b (Advanced)",
+        "Claude: claude-instant",
+        "Claude: claude-2 (Advanced)",
     ),
 )
 
@@ -48,19 +48,18 @@ if selected_llm_for_chatbot == "OpenAI: gpt-3.5-turbo":
 elif selected_llm_for_chatbot == "OpenAI: gpt-4 (Advanced)":
     model_to_use_for_chatbot = "gpt-4"
 
-elif selected_llm_for_chatbot == "LLaMa: llama3.1-8b":
+elif selected_llm_for_chatbot == "LLaMa: llama-2-7b":
     model_to_use_for_chatbot = "llama2-7b"
 
-elif selected_llm_for_chatbot == "LLaMa: llama3.1-405b (Advanced)":
+elif selected_llm_for_chatbot == "LLaMa: llama-2-70b (Advanced)":
     model_to_use_for_chatbot = "llama2-70b"
 
-elif selected_llm_for_chatbot == "Claude: claude-3-haiku-20240307":
-    model_to_use_for_chatbot = "claude-instant"
+elif selected_llm_for_chatbot == "Claude: claude-instant":
+    model_to_use_for_chatbot = "claude-instant-v1"
 
-elif (
-    selected_llm_for_chatbot == "Claude: claude-3-5-sonnet-20240620 (Advanced)"
-):
+elif selected_llm_for_chatbot == "Claude: claude-2 (Advanced)":
     model_to_use_for_chatbot = "claude-2"
+
 else:
     model_to_use_for_chatbot = None
 
@@ -121,15 +120,29 @@ if not st.session_state["messages"]:
         {"role": "assistant", "content": "How can I help you?"},
     ]
 
+# Function to count tokens
+def count_tokens(messages, model):
+    # For OpenAI models, use tiktoken
+    if model in ["gpt-3.5-turbo", "gpt-4"]:
+        encoding = tiktoken.encoding_for_model(model)
+        num_tokens = 0
+        for message in messages:
+            num_tokens += 4  # Every message format has 4 tokens overhead
+            for key, value in message.items():
+                num_tokens += len(encoding.encode(value))
+        num_tokens += 2  # Every reply is primed with <|start|>assistant<|message|>
+        return num_tokens
+    else:
+        # For other models, estimate tokens as len divided by 4
+        return sum([len(msg["content"]) // 4 for msg in messages])
+
 # Function to manage conversation memory
 def manage_memory(messages, behavior):
-
     if behavior == "Keep last 5 questions":
         # Keep system messages and last 5 pairs
         system_messages = [msg for msg in messages if msg["role"] == "system"]
         conversation = [msg for msg in messages if msg["role"] != "system"]
         return system_messages + conversation[-10:]  # Last 5 pairs (user and assistant)
-
     elif behavior == "Summarize after 5 interactions":
         system_messages = [msg for msg in messages if msg["role"] == "system"]
         conversation = [msg for msg in messages if msg["role"] != "system"]
@@ -143,23 +156,22 @@ def manage_memory(messages, behavior):
             summary = generate_summary(
                 document, instruction, model_to_use_for_chatbot
             )
+            # Display the summary
             st.write("### Conversation Summary")
             st.write(summary)
-            # Reset conversation keeping the system messages and summary
-            return system_messages + [{"role": "assistant", "content": summary}]
-        
+            # Reset conversation keeping the system messages
+            return system_messages
         else:
             return messages
-        
     elif behavior == "Limit by token size (5000 tokens)":
-        system_messages = [msg for msg in messages if msg["role"] == "system"]
-        conversation = [msg for msg in messages if msg["role"] != "system"]
-        token_count = sum([len(msg["content"]) for msg in conversation])  # Rough estimation
-        while token_count > 5000 and conversation:
-            conversation.pop(0)  # Remove oldest messages until under the token limit
-            token_count = sum([len(msg["content"]) for msg in conversation])
-        return system_messages + conversation
-    
+        token_limit = 5000
+        while count_tokens(messages, model_to_use_for_chatbot) > token_limit and len(messages) > 0:
+            # Remove the oldest non-system message
+            for i, msg in enumerate(messages):
+                if msg["role"] != "system":
+                    messages.pop(i)
+                    break
+        return messages
     else:
         return messages
 
@@ -167,13 +179,10 @@ def manage_memory(messages, behavior):
 def generate_summary(text, instruction, model_to_use):
     if model_to_use in ["gpt-3.5-turbo", "gpt-4"]:
         return summarize_with_openai(text, instruction, model_to_use)
-
     elif model_to_use.startswith("llama"):
         return summarize_with_llama(text, instruction, model_to_use)
-
     elif model_to_use.startswith("claude"):
         return summarize_with_claude(text, instruction, model_to_use)
-
     else:
         st.error("Model not supported.")
         return None
@@ -187,24 +196,24 @@ def summarize_with_openai(text, instruction, model):
         model=model, messages=messages, max_tokens=500
     )
     summary = response["choices"][0]["message"]["content"]
-    return summary # commenting this because I am getting the summary twice
+    return summary
 
 def summarize_with_llama(text, instruction, model):
     llm = OllamaLLM(model=model)
     prompt = f"{instruction}\n\n{text}"
-    response = llm(prompt)
+    response = llm.invoke(input=prompt)
     return response
 
 def summarize_with_claude(text, instruction, model):
     client = anthropic.Client(api_key=claude_api_key)
     prompt = f"{anthropic.HUMAN_PROMPT} {instruction}\n\n{text} {anthropic.AI_PROMPT}"
-    response = client.completion(
+    response = client.completions.create(
         prompt=prompt,
         stop_sequences=[anthropic.HUMAN_PROMPT],
         model=model,
         max_tokens_to_sample=500,
     )
-    return response["completion"]
+    return response.completion
 
 # Manage conversation memory
 st.session_state["messages"] = manage_memory(st.session_state["messages"], behavior)
@@ -255,7 +264,7 @@ if prompt := st.chat_input("Ask the chatbot a question or interact:"):
             elif message["role"] == "assistant":
                 prompt += f"Assistant: {message['content']}\n"
         prompt += "Assistant:"
-        response = llm(prompt)
+        response = llm.invoke(input=prompt)
         return response
 
     def chatbot_response_claude(messages, model):
@@ -268,13 +277,13 @@ if prompt := st.chat_input("Ask the chatbot a question or interact:"):
                 prompt += f"{anthropic.HUMAN_PROMPT} {message['content']} {anthropic.AI_PROMPT}"
             elif message["role"] == "assistant":
                 prompt += f"{message['content']}"
-        response = client.completion(
+        response = client.completions.create(
             prompt=prompt,
             stop_sequences=[anthropic.HUMAN_PROMPT],
             model=model,
             max_tokens_to_sample=500,
         )
-        return response["completion"]
+        return response.completion
 
     # Get assistant's response
     assistant_message = get_chatbot_response(

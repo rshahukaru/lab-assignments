@@ -7,7 +7,7 @@ import anthropic
 import tiktoken  # For accurate token counting
 
 # Title of the Streamlit app
-st.title("Just practicing Streamlit Code")
+st.title("Multi-LLM Chatbot with Context")
 
 # Fetch the API keys from streamlit secrets
 openai_api_key = st.secrets["openai_api_key"]
@@ -44,22 +44,16 @@ selected_llm_for_chatbot = st.sidebar.selectbox(
 
 if selected_llm_for_chatbot == "OpenAI: gpt-3.5-turbo":
     model_to_use_for_chatbot = "gpt-3.5-turbo"
-
 elif selected_llm_for_chatbot == "OpenAI: gpt-4 (Advanced)":
     model_to_use_for_chatbot = "gpt-4"
-
 elif selected_llm_for_chatbot == "LLaMa: llama-2-7b":
-    model_to_use_for_chatbot = "llama2-7b"
-
+    model_to_use_for_chatbot = "llama2:7b"
 elif selected_llm_for_chatbot == "LLaMa: llama-2-70b (Advanced)":
-    model_to_use_for_chatbot = "llama2-70b"
-
+    model_to_use_for_chatbot = "llama2:70b"
 elif selected_llm_for_chatbot == "Claude: claude-instant":
-    model_to_use_for_chatbot = "claude-instant-v1"
-
+    model_to_use_for_chatbot = "claude-instant-1.2"
 elif selected_llm_for_chatbot == "Claude: claude-2 (Advanced)":
-    model_to_use_for_chatbot = "claude-2"
-
+    model_to_use_for_chatbot = "claude-2.1"
 else:
     model_to_use_for_chatbot = None
 
@@ -123,7 +117,7 @@ if not st.session_state["messages"]:
 # Function to count tokens
 def count_tokens(messages, model):
     # For OpenAI models, use tiktoken
-    if model in ["gpt-3.5-turbo", "gpt-4"]:
+    if model.startswith("gpt"):
         encoding = tiktoken.encoding_for_model(model)
         num_tokens = 0
         for message in messages:
@@ -177,7 +171,7 @@ def manage_memory(messages, behavior):
 
 # Function to generate summary (needed for 'Summarize after 5 interactions')
 def generate_summary(text, instruction, model_to_use):
-    if model_to_use in ["gpt-3.5-turbo", "gpt-4"]:
+    if model_to_use.startswith("gpt"):
         return summarize_with_openai(text, instruction, model_to_use)
     elif model_to_use.startswith("llama"):
         return summarize_with_llama(text, instruction, model_to_use)
@@ -205,7 +199,7 @@ def summarize_with_llama(text, instruction, model):
     return response
 
 def summarize_with_claude(text, instruction, model):
-    client = anthropic.Client(api_key=claude_api_key)
+    client = anthropic.Anthropic(api_key=claude_api_key)
     prompt = f"{anthropic.HUMAN_PROMPT} {instruction}\n\n{text} {anthropic.AI_PROMPT}"
     response = client.completions.create(
         prompt=prompt,
@@ -235,7 +229,7 @@ if prompt := st.chat_input("Ask the chatbot a question or interact:"):
 
     # Function to get chatbot response
     def get_chatbot_response(messages, model_to_use):
-        if model_to_use in ["gpt-3.5-turbo", "gpt-4"]:
+        if model_to_use.startswith("gpt"):
             return chatbot_response_openai(messages, model_to_use)
         elif model_to_use.startswith("llama"):
             return chatbot_response_llama(messages, model_to_use)
@@ -246,55 +240,72 @@ if prompt := st.chat_input("Ask the chatbot a question or interact:"):
             return None
 
     def chatbot_response_openai(messages, model):
-        response = openai.ChatCompletion.create(
-            model=model, messages=messages
-        )
-        assistant_message = response["choices"][0]["message"]["content"]
-        return assistant_message
+        try:
+            response = openai.ChatCompletion.create(
+                model=model, messages=messages
+            )
+            assistant_message = response["choices"][0]["message"]["content"]
+            return assistant_message
+        except Exception as e:
+            st.error(f"Error with OpenAI API: {str(e)}")
+            return None
 
     def chatbot_response_llama(messages, model):
-        llm = OllamaLLM(model=model)
-        # Convert messages into a single prompt
-        prompt = ""
-        for message in messages:
-            if message["role"] == "system":
-                prompt += f"System: {message['content']}\n"
-            elif message["role"] == "user":
-                prompt += f"User: {message['content']}\n"
-            elif message["role"] == "assistant":
-                prompt += f"Assistant: {message['content']}\n"
-        prompt += "Assistant:"
-        response = llm.invoke(input=prompt)
-        return response
+        try:
+            llm = OllamaLLM(model=model)
+            prompt = "You are a helpful assistant. Respond to the following conversation:\n\n"
+            for message in messages:
+                if message["role"] == "system":
+                    prompt += f"System: {message['content']}\n"
+                elif message["role"] == "user":
+                    prompt += f"Human: {message['content']}\n"
+                elif message["role"] == "assistant":
+                    prompt += f"Assistant: {message['content']}\n"
+            prompt += "Assistant:"
+            
+            response = llm.invoke(prompt)
+            return response
+        except Exception as e:
+            st.error(f"Error with LLaMA model: {str(e)}")
+            return None
 
     def chatbot_response_claude(messages, model):
-        client = anthropic.Client(api_key=claude_api_key)
-        prompt = ""
-        for message in messages:
-            if message["role"] == "system":
-                prompt += f"{anthropic.HUMAN_PROMPT} {message['content']} {anthropic.AI_PROMPT}"
-            elif message["role"] == "user":
-                prompt += f"{anthropic.HUMAN_PROMPT} {message['content']} {anthropic.AI_PROMPT}"
-            elif message["role"] == "assistant":
-                prompt += f"{message['content']}"
-        response = client.completions.create(
-            prompt=prompt,
-            stop_sequences=[anthropic.HUMAN_PROMPT],
-            model=model,
-            max_tokens_to_sample=500,
-        )
-        return response.completion
+        try:
+            client = anthropic.Anthropic(api_key=claude_api_key)
+            prompt = anthropic.HUMAN_PROMPT
+            for message in messages:
+                if message["role"] == "system":
+                    prompt += f"{message['content']}\n"
+                elif message["role"] == "user":
+                    prompt += f"{anthropic.HUMAN_PROMPT} {message['content']}\n"
+                elif message["role"] == "assistant":
+                    prompt += f"{anthropic.AI_PROMPT} {message['content']}\n"
+            prompt += f"{anthropic.AI_PROMPT}"
+            
+            response = client.completions.create(
+                model=model,
+                prompt=prompt,
+                max_tokens_to_sample=500,
+                stop_sequences=[anthropic.HUMAN_PROMPT]
+            )
+            return response.completion
+        except Exception as e:
+            st.error(f"Error with Claude API: {str(e)}")
+            return None
 
     # Get assistant's response
     assistant_message = get_chatbot_response(
         st.session_state["messages"], model_to_use_for_chatbot
     )
 
-    # Append the assistant's response to session state
-    st.session_state["messages"].append(
-        {"role": "assistant", "content": assistant_message}
-    )
+    if assistant_message:
+        # Append the assistant's response to session state
+        st.session_state["messages"].append(
+            {"role": "assistant", "content": assistant_message}
+        )
 
-    # Display assistant's response
-    with st.chat_message("assistant"):
-        st.markdown(assistant_message)
+        # Display assistant's response
+        with st.chat_message("assistant"):
+            st.markdown(assistant_message)
+    else:
+        st.error("Failed to get a response from the chatbot. Please try again.")
